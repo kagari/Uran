@@ -1,0 +1,36 @@
+#+TITLE:pythonで遊ぶ
+#+OPTIONS: \n:t
+* ターミナル
+[[http://www.yunabe.jp/docs/terminal_progress_bar.html][ターミナルにプログレスバーを表示する方法]]
+pythonでエスケープシーケンスを使用する場合、 =sys.stderr.write()= 関数を使用する。
+またエスケープシーケンス =ESC= は =\r\033= と記述。
+以下は画面をリセットする例。
+#+BEGIN_SRC python
+import sys
+#sys.stderr.write('\r\033[2J') 画面をリセットする
+#sys.stderr.write('\r\033[H') カーソルを画面の一番上に持ってくる
+sys.stderr.write('\r\033[2J\r\033[H') #画面をリセットし、カーソルを画面の一番上に持ってくる
+#+END_SRC
+** 色をつける
+ターミナル上で文字に色をつける場合、エスケープシーケンス(特殊文字?)を使用する。
+色をつけたい文字の前に =\x1b[1;= と記述し、その後文字色を記述する。例えば赤であれば =31m= など。
+その後の文字には指定した色がつき、文字をデフォルトに戻したい時は =\x1b[0m= と記述する。
+以下は赤色の =Hello,World!= を出力する例である。
+#+BEGIN_SRC python
+print("\x1b[1;31mHello,World!\x1b[0m")
+#+END_SRC
+二行に分けても同様に色をつけられる。最後の =\x1b[0m= を忘れないように。
+#+BEGIN_SRC python
+print("\x1b[1;31mHello,\n")
+print("World!\x1b[0m")
+#+END_SRC
+同様に、背景色を設定することも可能。例は赤色を背景色に指定。
+#+BEGIN_SRC python
+print("\x1b[1;41mHello,World!\x1b[0m")
+#+END_SRC
+３０番台が文字色、４０番台が背景色だと思われる。
+文字色と背景色の同時設定もできるが、分けて記述しなければならない。
+例は文字色を緑、背景色を赤で設定したものである。
+#+BEGIN_SRC python
+print("\x1b[1;41m\x1b[1;33mHello,World!\x1b[0m")
+#+END_SRC
