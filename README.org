@@ -1,4 +1,4 @@
-#+TITLE:pythonで遊ぶ
+#+TITLE:Uran
 #+OPTIONS: \n:t
 * ターミナル
 [[http://www.yunabe.jp/docs/terminal_progress_bar.html][ターミナルにプログレスバーを表示する方法]]
@@ -34,3 +34,18 @@ print("\x1b[1;41mHello,World!\x1b[0m")
 #+BEGIN_SRC python
 print("\x1b[1;41m\x1b[1;33mHello,World!\x1b[0m")
 #+END_SRC
+
+* エディタ
+** curses
+UNIX系システムで端末制御ライブラリである。[[https://ja.wikipedia.org/wiki/Curses][curses]]
+pythonでも同様にライブラリが存在するので、cursesを使用して作成していく。[[https://docs.python.org/ja/3/library/curses.html#module-curses.textpad][cursesライブラリ(日本語)]]
+*** 使い方とか諸々
+#+BEGIN_SCR python
+def main(stdscr):
+    stdscr.clear() # 画面をクリア
+    stdscr.refresh() # 画面をリフレッシュ
+
+
+if __name__ == '__main__':
+    curses.wrapper(main) # 初期化を行い、終了するとcursesアプリケーションを正常に終了させる。
+#+END_SCR

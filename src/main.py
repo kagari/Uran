@@ -1,49 +1,156 @@
+import sys,os
 import curses
-import curses.ascii
+from curses import textpad
+
+def file_print(filename):
+    fin = open(filename)
+    str = 10
+    if not fin:
+        print("[error]can't open")
+        return
+    while True:
+        line = fin.readline(str)
+        if not line:
+            break
+        print(line)
+    fin.close()
 
 def main(stdscr):
-    stdscr.clear()
+    stdscr.clear() # 画面をクリア
+    init() # 変数などの初期値を設定
+    cursor_y, cursor_x = stdscr.getyx() # 現在のカーソル位置を取得
+    # 編集を行う
     while True:
-        key = stdscr.getch() # 入力された文字の取得
-        now_y, now_x = stdscr.getyx() # 現在のカーソル位置
-        max_y, max_x = stdscr.getmaxyx() # ウィンドウの最大値取得
-        # 文字を表示できる場所はウィンドウの最大に-1した場所まで
-        max_y -= 1
-        max_x -= 1
-        # C-Xで終了
-        if key == curses.ascii.CAN:
+        key = stdscr.getch() # 入力待ち
+        if not key: # 入力がNULLだった場合
+            continue
+        if not do_command(key): # do_commandに操作がなければ終了
             break
-        elif key in (curses.ascii.BS, curses.KEY_BACKSPACE):
-            if now_x > 0:
-                stdscr.delch(now_y, now_x-1) # 今のカーソルの一つ前の文字を削除
+    # 終了前に画面をリフレッシュ
+    stdscr.refresh() # 画面をリフレッシュ
 
-        # 右十字キー
-        elif key == curses.KEY_RIGHT:
-            if now_x < max_x:
-                stdscr.move(now_y, now_x+1)
+def _update_max_yx():
+    maxy, maxx = win.getmaxyx()
+    maxy = maxy - 1
+    maxx = maxx - 1
 
-        elif key == curses.KEY_LEFT:
-            if now_x > 0:
-                stdscr.move(now_y, now_x-1)
+def _end_of_line(y): # 今いる行の最後の位置を返す
+    "行の最大値から長さを一つずつ減らしていき、文字がある位置を探す"
+    _update_max_yx()
+    last = maxx
+    while True:
+        if curses.ascii.ascii(win.inch(y, last)) != curses.ascii.SP:
+            last = min(maxx, last+1)
+            break
+        elif last == 0:
+            break
+        last = last - 1
+    return last
 
-        elif key == curses.KEY_DOWN:
-            if now_y < max_y:
-                stdscr.move(now_y+1, now_x)
+def _insert_printabale_char(ch):
+    _update_max_yx()
+    (y, x) = win.getyx()
+    backyx = None
+    while y < maxy or x < maxx:
+        if insert_mode:
+            oldch = win.inch()
+        try:
+            win.addch(ch)
+        except curses.error:
+            pass
+        if not insert_mode or not curses.ascii.isprint(oldch):
+            break
+        ch = oldch
+        (y, x) = win.getyx()
+        # Remember where to put the cursor back since we are in insert_mode
+        if backyx is None:
+            backyx = y, x
 
-        elif key == curses.KEY_UP:
-            if now_y > 0:
-                stdscr.move(now_y-1, now_x)
+    if backyx is not None:
+        win.move(*backyx)
 
-        # 他のキー、普通の文字など
-        else:
-            # 一番右下(max_y, max_x)でのaddchはカーソルが範囲外に行きエラーとなる(max_y+1, 0に移動でエラー)
-            # そのため、現在カーソルが一番右下の場合は無視
-            if now_x == max_x and now_y == max_y:
+def do_command(key):
+    "Process a single editing command."
+    _update_max_yx()
+    (y, x) = win.getyx()
+    lastcmd = ch
+    if curses.ascii.isprint(ch):
+        if y < maxy or x < maxx:
+            _insert_printable_char(ch)
+        elif ch == curses.ascii.SOH:                           # ^a
+            win.move(y, 0)
+        elif ch in (curses.ascii.STX,curses.KEY_LEFT, curses.ascii.BS,curses.KEY_BACKSPACE):
+            if x > 0:
+                win.move(y, x-1)
+            elif y == 0:
                 pass
-            elif now_y == max_y and key in (curses.KEY_ENTER, 10):
+            elif stripspaces:
+                win.move(y-1, _end_of_line(y-1))
+            else:
+                win.move(y-1, maxx)
+            if ch in (curses.ascii.BS, curses.KEY_BACKSPACE):
+                win.delch()
+        elif ch == curses.ascii.EOT:                           # ^d
+            win.delch()
+        elif ch == curses.ascii.ENQ:                           # ^e
+            if stripspaces:
+                win.move(y, _end_of_line(y))
+            else:
+                win.move(y, maxx)
+        elif ch in (curses.ascii.ACK, curses.KEY_RIGHT):       # ^f
+            if x < maxx:
+                win.move(y, x+1)
+            elif y == maxy:
                 pass
             else:
-                stdscr.addch(key)
-        stdscr.refresh()
+                win.move(y+1, 0)
+        elif ch == curses.ascii.BEL:                           # ^g
+            return 0
+        elif ch == curses.ascii.NL:                            # ^j
+            if maxy == 0:
+                return 0
+            elif y < maxy:
+                win.move(y+1, 0)
+        elif ch == curses.ascii.VT:                            # ^k
+            if x == 0 and _end_of_line(y) == 0:
+                win.deleteln()
+            else:
+                # first undo the effect of _end_of_line
+                win.move(y, x)
+                win.clrtoeol()
+        elif ch == curses.ascii.FF:                            # ^l
+            win.refresh()
+        elif ch in (curses.ascii.SO, curses.KEY_DOWN):         # ^n
+            if y < maxy:
+                win.move(y+1, x)
+                if x > _end_of_line(y+1):
+                    win.move(y+1, _end_of_line(y+1))
+        elif ch == curses.ascii.SI:                            # ^o
+            win.insertln()
+        elif ch in (curses.ascii.DLE, curses.KEY_UP):          # ^p
+            if y > 0:
+                win.move(y-1, x)
+                if x > _end_of_line(y-1):
+                    win.move(y-1, _end_of_line(y-1))
+        return 1
 
-curses.wrapper(main)
+def edit():
+    while True:
+        ch = win.getch()
+        if not ch:
+            continue
+        if not do_command(ch):
+            break
+        win.refresh()
+    return gather()
+
+if __name__ == '__main__':
+    def test_editbox(stdscr):
+        stdscr.clear()
+        stdscr.addstr("Use q to end editing.")
+        win = curses.newwin()
+        stdscr.refresh()
+        return Textbox(win).edit()
+
+    str = curses.wrapper(test_editbox)
+    print("Contents of text box:", repr(str))
