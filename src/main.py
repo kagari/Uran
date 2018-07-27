@@ -2,22 +2,8 @@ import sys,os
 import curses
 from curses import textpad
 
-def file_print(filename):
-    fin = open(filename)
-    str = 10
-    if not fin:
-        print("[error]can't open")
-        return
-    while True:
-        line = fin.readline(str)
-        if not line:
-            break
-        print(line)
-    fin.close()
-
 def main(stdscr):
-    stdscr.clear() # 画面をクリア
-    init() # 変数などの初期値を設定
+    stdscr.clear()
     cursor_y, cursor_x = stdscr.getyx() # 現在のカーソル位置を取得
     # 編集を行う
     while True:
